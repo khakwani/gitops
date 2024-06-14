@@ -50,7 +50,6 @@ spec:
     crds: Create
   upgrade:
     crds: CreateReplace
-  values:
     prometheus:
       prometheusSpec:
         additionalScrapeConfigs:
@@ -82,8 +81,14 @@ spec:
         podMonitorSelectorNilUsesHelmValues: false
         ruleNamespaceSelector:
           any: true
-          # Add your custom rules here if needed
-        ruleSelector: {}
+        ruleSelector:
+          prometheus-kube-prometheus-stack-prometheus-cpu-alert:
+            expr: sum(rate(container_cpu_usage_seconds_total{namespace="monitoring", pod=~"prometheus-kube-prometheus-stack-prometheus-0.*"}[5m])) < 0.06
+            labels:
+              severity: critical
+            annotations:
+              summary: "CPU usage is below 0.06 cores per second"
+              description: "CPU usage for pod prometheus-kube-prometheus-stack-prometheus in namespace monitoring is below the threshold of 0.06 cores per second."
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorNamespaceSelector:
           matchNames:

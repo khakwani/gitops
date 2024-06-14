@@ -68,7 +68,7 @@ spec:
           args:
             - "--config.file=/etc/alertmanager/config/alertmanager.yml"
             - "--storage.path=/alertmanager"
-            - "--web.external-url="
+            - "--web.external-url=http://alertmanager.example.com"
           ports:
             - containerPort: 9093
           volumeMounts:
