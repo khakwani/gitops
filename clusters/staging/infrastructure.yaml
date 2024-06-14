@@ -8,6 +8,52 @@ metadata:
 
 ---
 
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: prometheusrules.monitoring.coreos.com
+spec:
+  group: monitoring.coreos.com
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+  scope: Namespaced
+  names:
+    plural: prometheusrules
+    singular: prometheusrule
+    kind: PrometheusRule
+    shortNames:
+      - promrule
+
+---
+
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: servicemonitors.monitoring.coreos.com
+spec:
+  group: monitoring.coreos.com
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+  scope: Namespaced
+  names:
+    plural: servicemonitors
+    singular: servicemonitor
+    kind: ServiceMonitor
+    shortNames:
+      - sm
+
+---
+
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
@@ -104,4 +150,152 @@ data:
     receivers:
       - name: 'discord'
         webhook_configs:
-          - url: 'https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y'
+          - secret: discord-webhook
+            key: address
+
+---
+
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+      version: "58.7.2"
+  interval: 1h
+  install:
+    crds: Create
+  upgrade:
+    crds: CreateReplace
+  values:
+    grafana:
+      adminPassword: "admin123"
+      defaultDashboardsEnabled: true
+      ingress:
+        enabled: true
+        ingressClassName: nginx
+        annotations:
+          kubernetes.io/ingress.class: nginx
+          cert-manager.io/cluster-issuer: letsencrypt
+          nginx.ingress.kubernetes.io/rewrite-target: /
+          nginx.ingress.kubernetes.io/ssl-redirect: "false"
+        hosts:
+          - localhost
+        tls:
+          - hosts:
+              - localhost
+            secretName: cert-secret-mon
+        path: /
+    prometheus:
+      prometheusSpec:
+        additionalScrapeConfigs:
+          - job_name: 'promtail'
+            static_configs:
+              - targets: ['promtail:9080']
+        alerting:
+          alertmanagers:
+            - static_configs:
+                - targets:
+                    - kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
+        nodeSelector:
+          tasktype: compute
+        tolerations:
+          - key: "node-role.kubernetes.io/control-plane"
+            operator: "Exists"
+            effect: "NoSchedule"
+        retention: 24h
+        resources:
+          limits:
+            cpu: 1
+            memory: 500Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
+        podMonitorNamespaceSelector:
+          any: true
+        ruleNamespaceSelector:
+          any: true
+        serviceMonitorNamespaceSelector:
+          matchNames:
+            - monitoring
+
+---
+
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki-stack
+  namespace: monitoring
+spec:
+  chart:
+    spec:
+      chart: loki-stack
+      sourceRef:
+        kind: HelmRepository
+        name: loki
+        namespace: monitoring
+      version: "2.4.1"
+  interval: 1h
+  values:
+    loki:
+      enabled: true
+    promtail:
+      enabled: true
+    rbac:
+      pspEnabled: false
+    serviceMonitorNamespaceSelector:
+      matchNames:
+        - monitoring
+    probeNamespaceSelector:
+      any: true
+
+---
+
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: discord-bot
+  namespace: monitoring
+spec:
+  type: discord
+  secretRef:
+    name: discord-webhook
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: discord-webhook
+  namespace: monitoring
+stringData:
+  address: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
+
+---
+
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: on-call-webapp
+  namespace: monitoring
+spec:
+  summary: "Prometheus Alerts"
+  eventMetadata:
+    env: "production"
+    cluster: "production-cluster"
+    region: "pk-east-1"
+  providerRef:
+    name: discord-bot
+  eventSeverity: info
+  eventSources:
+    - kind: HelmRelease
+      name: kube-prometheus-stack
+    - kind: HelmRelease
+      name: loki-stack
