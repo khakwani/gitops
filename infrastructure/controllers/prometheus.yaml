@@ -5,7 +5,9 @@ metadata:
   name: monitoring
   labels:
     app.kubernetes.io/component: monitoring
+
 ---
+
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
@@ -15,7 +17,9 @@ spec:
   interval: 12h
   type: oci
   url: oci://ghcr.io/prometheus-community/charts
+
 ---
+
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
@@ -24,7 +28,9 @@ metadata:
 spec:
   interval: 12h
   url: https://grafana.github.io/helm-charts
+
 ---
+
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -39,16 +45,23 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
-      interval: 1h
+        namespace: monitoring
   install:
     crds: Create
   upgrade:
     crds: CreateReplace
   values:
-    alertmanager:
-      enabled: true
     prometheus:
       prometheusSpec:
+        additionalScrapeConfigs:
+          - job_name: 'promtail'
+            static_configs:
+              - targets: ['promtail:9080']
+        alerting:
+          alertmanagers:
+            - static_configs:
+                - targets:
+                    - kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
         nodeSelector:
           tasktype: compute
         tolerations:
@@ -69,6 +82,7 @@ spec:
         podMonitorSelectorNilUsesHelmValues: false
         ruleNamespaceSelector:
           any: true
+          # Add your custom rules here if needed
         ruleSelector: {}
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorNamespaceSelector:
@@ -80,13 +94,11 @@ spec:
           any: true
         probeSelector: {}
         probeSelectorNilUsesHelmValues: false
-
-      additionalAlertRelabelConfigs: []
-      additionalAlerts: []
-      # Disable default alerts
-      ruleSelectorNilUsesHelmValues: false
-      ruleSelector: {}
-
+      serviceMonitorNamespaceSelector:
+        matchNames:
+          - monitoring
+      serviceMonitorSelector: {}
+      serviceMonitorSelectorNilUsesHelmValues: false
     grafana:
       defaultDashboardsEnabled: true
       adminPassword: "admin123"
@@ -112,7 +124,9 @@ spec:
         https_proxy: ""
         NO_PROXY: ""
         no_proxy: ""
+
 ---
+
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -144,9 +158,4 @@ spec:
     probeNamespaceSelector:
       any: true
     probeSelector: {}
-
-    prometheus:
-      additionalScrapeConfigs:
-        - job_name: 'promtail'
-          static_configs:
-            - targets: ['promtail:9080']
+    probeSelectorNilUsesHelmValues: false

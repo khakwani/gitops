@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -30,142 +31,77 @@ spec:
 
 ---
 
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
+apiVersion: v1
+kind: Service
 metadata:
-  name: kube-prometheus-stack
+  name: discord-url
   namespace: monitoring
 spec:
-  interval: 1h
-  chart:
-    spec:
-      chart: kube-prometheus-stack
-      version: "58.7.2"
-      sourceRef:
-        kind: HelmRepository
-        name: prometheus-community
-        namespace: monitoring
-  install:
-    crds: Create
-  upgrade:
-    crds: CreateReplace
-  values:
-    alertmanager:
-      enabled: true
-      alertmanagerSpec:
-        replicas: 1  # Set replicas to 1 instead of 3
-        clusterAdvertiseAddress: $(POD_IP)
-        clusterListenAddress: '0.0.0.0:9094'
-        config:
-          global:
-            resolve_timeout: 5m
-          route:
-            group_by: ['alertname']
-            receiver: 'discord'
-            routes:
-              - match:
-                  alertname: 'Watchdog'
-                receiver: 'null'
-          receivers:
-            - name: 'discord'
-              webhook_configs:
-                - url: 'https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y'
-    prometheus:
-      prometheusSpec:
-        nodeSelector:
-          tasktype: compute
-        tolerations:
-          - key: "node-role.kubernetes.io/control-plane"
-            operator: "Exists"
-            effect: "NoSchedule"
-        retention: 24h
-        resources:
-          limits:
-            cpu: 1
-            memory: 500Mi
-          requests:
-            cpu: 200m
-            memory: 200Mi
-        podMonitorNamespaceSelector:
-          any: true
-        podMonitorSelector: {}
-        podMonitorSelectorNilUsesHelmValues: false
-        ruleNamespaceSelector:
-          any: true
-        ruleSelector: {}
-        ruleSelectorNilUsesHelmValues: false
-        serviceMonitorNamespaceSelector:
-          matchNames:
-            - monitoring
-        serviceMonitorSelector: {}
-        serviceMonitorSelectorNilUsesHelmValues: false
-        probeNamespaceSelector:
-          any: true
-        probeSelector: {}
-        probeSelectorNilUsesHelmValues: false
-      additionalScrapeConfigs:
-        - job_name: 'promtail'
-          static_configs:
-            - targets: ['promtail:9080']
-      additionalAlerts: []
-
-    grafana:
-      defaultDashboardsEnabled: true
-      adminPassword: "admin123"
-      ingress:
-        enabled: true
-        ingressClassName: nginx
-        annotations:
-          kubernetes.io/ingress.class: nginx
-          cert-manager.io/cluster-issuer: letsencrypt
-          nginx.ingress.kubernetes.io/rewrite-target: /
-          nginx.ingress.kubernetes.io/ssl-redirect: "false"
-        hosts:
-          - localhost
-        tls:
-          - hosts:
-              - localhost
-            secretName: cert-secret-mon
-        path: /
-      env:
-        HTTP_PROXY: ""
-        http_proxy: ""
-        HTTPS_PROXY: ""
-        https_proxy: ""
-        NO_PROXY: ""
-        no_proxy: ""
+  selector:
+    app.kubernetes.io/component: monitoring
+  ports:
+    - name: discord
+      protocol: TCP
+      port: 9093
+      targetPort: 9093
 
 ---
 
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: loki-stack
+  name: discord-alertmanager
   namespace: monitoring
 spec:
-  interval: 1h
-  chart:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discord-alertmanager
+  template:
+    metadata:
+      labels:
+        app: discord-alertmanager
     spec:
-      chart: loki-stack
-      version: "2.4.1"
-      sourceRef:
-        kind: HelmRepository
-        name: loki
-        namespace: monitoring
-      interval: 1h
-  values:
-    loki:
-      enabled: true
-    promtail:
-      enabled: true
-    rbac:
-      pspEnabled: false
-    serviceMonitorNamespaceSelector:
-      matchNames:
-        - monitoring
-    serviceMonitorSelector: {}
-    serviceMonitorSelectorNilUsesHelmValues: false
-    probeNamespaceSelector:
-      any: true
-    probeSelector: {}
-    probeSelectorNilUsesHelmValues: false
+      containers:
+        - name: discord-alertmanager
+          image: quay.io/prometheus/alertmanager:v0.23.0
+          args:
+            - "--config.file=/etc/alertmanager/config/alertmanager.yml"
+            - "--storage.path=/alertmanager"
+            - "--web.external-url="
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/alertmanager/config
+            - name: storage-volume
+              mountPath: /alertmanager
+      volumes:
+        - name: config-volume
+          configMap:
+            name: alertmanager-config
+        - name: storage-volume
+          emptyDir: {}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname']
+      receiver: 'discord'
+      routes:
+        - match:
+            alertname: 'Watchdog'
+          receiver: 'discord'
+    receivers:
+      - name: 'discord'
+        webhook_configs:
+          - url: 'https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y'
