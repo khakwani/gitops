@@ -1,95 +1,107 @@
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
 metadata:
-  name: infra-controllers
-  namespace: flux-system
+  name: kube-prometheus-stack
+  namespace: monitoring
 spec:
   interval: 1h
-  retryInterval: 1m
-  timeout: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: ./infrastructure/controllers
-  prune: true
-  wait: true
-  patches:
-    - patch: |
-        - op: replace
-          path: /spec/values/no_proxy
-          value: ".cluster.local.,.cluster.local,.svc,10.0.0.0/8,192.168.0.0/16,127.0.0.1"
-      target:
-        kind: HelmRelease
-        name: cert-manager
-    - patch: |
-        - op: replace
-          path: /spec/values/alertmanager/enabled
-          value: true
-        # Adjusted configurations for a simpler setup on local Kind cluster
-      target:
-        kind: HelmRelease
-        name: kube-prometheus-stack
-
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: infra-configs
-  namespace: flux-system
-spec:
-  dependsOn:
-    - name: infra-controllers
-  interval: 1h
-  retryInterval: 1m
-  timeout: 5m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: ./infrastructure/configs
-  prune: true
-  patches:
-    - patch: |
-        - op: replace
-          path: /spec/acme/server
-          value: https://acme-staging-v02.api.letsencrypt.org/directory
-      target:
-        kind: ClusterIssuer
-        name: letsencrypt
----
-apiVersion: notification.toolkit.fluxcd.io/v1beta2
-kind: Provider
-metadata:
-  name: discord-bot
-  namespace: flux-system
-spec:
-  type: discord
-  secretRef:
-    name: discord-webhook
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: discord-webhook
-  namespace: flux-system
-stringData:
-  address: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
----
-apiVersion: notification.toolkit.fluxcd.io/v1beta3
-kind: Alert
-metadata:
-  name: on-call-webapp
-  namespace: flux-system
-spec:
-  summary: "cluster addons"
-  eventMetadata:
-    env: "production"
-    cluster: "production-cluster"
-    region: "pk-east-1"
-  providerRef:
-    name: discord-bot
-  eventSeverity: info
-  eventSources:
-    - kind: GitRepository
-      name: '*'
-    - kind: Kustomization
-      name: '*'
+  chart:
+    spec:
+      version: "58.7.2"
+      chart: kube-prometheus-stack
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+      interval: 1h
+  install:
+    crds: Create
+  upgrade:
+    crds: CreateReplace
+  values:
+    alertmanager:
+      enabled: true
+      alertmanagerSpec:
+        replicas: 3
+        clusterAdvertiseAddress: $(POD_IP)
+        clusterListenAddress: '0.0.0.0:9094'
+        config:
+          global:
+            resolve_timeout: 5m
+          route:
+            group_by: ['alertname']
+            receiver: 'discord'
+            routes:
+              - match:
+                  alertname: 'Watchdog'
+                receiver: 'null'
+          receivers:
+            - name: 'discord'
+              webhook_configs:
+                - url: 'https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y'
+    prometheus:
+      prometheusSpec:
+        nodeSelector:
+          tasktype: compute
+        tolerations:
+          - key: "node-role.kubernetes.io/control-plane"
+            operator: "Exists"
+            effect: "NoSchedule"
+        retention: 24h
+        resources:
+          limits:
+            cpu: 1
+            memory: 500Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
+        podMonitorNamespaceSelector:
+          any: true
+        podMonitorSelector: {}
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleNamespaceSelector:
+          any: true
+        ruleSelector: {}
+        ruleSelectorNilUsesHelmValues: false
+        serviceMonitorNamespaceSelector:
+          matchNames:
+            - monitoring
+        serviceMonitorSelector: {}
+        serviceMonitorSelectorNilUsesHelmValues: false
+        probeNamespaceSelector:
+          any: true
+        probeSelector: {}
+        probeSelectorNilUsesHelmValues: false
+      additionalScrapeConfigs:
+        - job_name: 'promtail'
+          static_configs:
+            - targets: ['promtail:9080']
+      additionalAlerts: []
+      # Disable default alerts
+      ruleSelectorNilUsesHelmValues: false
+      ruleSelector: {}
+    grafana:
+      defaultDashboardsEnabled: true
+      adminPassword: "admin123"
+      ingress:
+        enabled: true
+        ingressClassName: nginx
+        annotations:
+          kubernetes.io/ingress.class: nginx
+          cert-manager.io/cluster-issuer: letsencrypt
+          nginx.ingress.kubernetes.io/rewrite-target: /
+          nginx.ingress.kubernetes.io/ssl-redirect: "false"
+        hosts:
+          - localhost
+        tls:
+          - hosts:
+              - localhost
+            secretName: cert-secret-mon
+        path: /
+      env:
+        HTTP_PROXY: ""
+        http_proxy: ""
+        HTTPS_PROXY: ""
+        https_proxy: ""
+        NO_PROXY: ""
+        no_proxy: ""
