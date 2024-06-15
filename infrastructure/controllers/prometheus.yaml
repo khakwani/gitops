@@ -126,6 +126,7 @@ spec:
             description: "Pod {{ $labels.pod }} has been in Terminating state for more than 10 minutes."
     grafana:
       defaultDashboardsEnabled: true
+      adminUser: "admin"
       adminPassword: "admin123"
       ingress:
         enabled: true
@@ -143,12 +144,25 @@ spec:
             secretName: cert-secret-mon
         path: /
       env:
-        HTTP_PROXY: ""
-        http_proxy: ""
-        HTTPS_PROXY: ""
-        https_proxy: ""
-        NO_PROXY: ""
-        no_proxy: ""
+        - name: HTTP_PROXY
+          value: ""
+        - name: http_proxy
+          value: ""
+        - name: HTTPS_PROXY
+          value: ""
+        - name: https_proxy
+          value: ""
+        - name: NO_PROXY
+          value: ""
+        - name: no_proxy
+          value: ""
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 200m
+          memory: 500Mi
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
