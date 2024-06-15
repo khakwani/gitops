@@ -73,7 +73,7 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorNamespaceSelector:
           matchNames:
-            - monitoring  # Specify namespaces to monitor here
+            - monitoring
         serviceMonitorSelector: {}
         serviceMonitorSelectorNilUsesHelmValues: false
         probeNamespaceSelector:
@@ -172,20 +172,18 @@ spec:
     promtail:
       enabled: true
     rbac:
-      pspEnabled: false  # Disable PodSecurityPolicy if it exists
+      pspEnabled: false
     serviceMonitorNamespaceSelector:
       matchNames:
-        - monitoring  # Specify namespaces to monitor here
+        - monitoring
     serviceMonitorSelector: {}
     serviceMonitorSelectorNilUsesHelmValues: false
     probeNamespaceSelector:
       any: true
     probeSelector: {}
     probeSelectorNilUsesHelmValues: false
-
-    # Add scrape_config for Loki (Promtail)
     prometheus:
       additionalScrapeConfigs:
         - job_name: 'promtail'
           static_configs:
-            - targets: ['promtail:9080']  # Replace 'promtail' with the actual hostname of your Promtail service
+            - targets: ['promtail:9080']
