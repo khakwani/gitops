@@ -26,10 +26,10 @@ spec:
         - op: replace
           path: /spec/values/alertmanager/enabled
           value: true
+        # Adjusted configurations for a simpler setup on local Kind cluster
       target:
         kind: HelmRelease
         name: kube-prometheus-stack
-
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -55,9 +55,8 @@ spec:
       target:
         kind: ClusterIssuer
         name: letsencrypt
-
 ---
-apiVersion: notification.toolkit.fluxcd.io/v1beta3  # Upgrade to v1beta3
+apiVersion: notification.toolkit.fluxcd.io/v1beta2
 kind: Provider
 metadata:
   name: discord-bot
@@ -66,7 +65,6 @@ spec:
   type: discord
   secretRef:
     name: discord-webhook
-
 ---
 apiVersion: v1
 kind: Secret
@@ -75,9 +73,8 @@ metadata:
   namespace: flux-system
 stringData:
   address: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
-
 ---
-apiVersion: notification.toolkit.fluxcd.io/v1beta3  # Upgrade to v1beta3
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
 metadata:
   name: on-call-webapp
