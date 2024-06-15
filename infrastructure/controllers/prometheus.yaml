@@ -1,3 +1,30 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/component: monitoring
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+  namespace: monitoring
+spec:
+  interval: 12h
+  type: oci
+  url: oci://ghcr.io/prometheus-community/charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  interval: 12h
+  url: https://grafana.github.io/helm-charts
+---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -32,10 +59,10 @@ spec:
         resources:
           limits:
             cpu: 1
-            memory: 1Gi
-          requests:
-            cpu: 500m
             memory: 500Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
         podMonitorNamespaceSelector:
           any: true
         podMonitorSelector: {}
@@ -46,7 +73,7 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorNamespaceSelector:
           matchNames:
-            - monitoring
+            - monitoring  # Specify namespaces to monitor here
         serviceMonitorSelector: {}
         serviceMonitorSelectorNilUsesHelmValues: false
         probeNamespaceSelector:
@@ -99,7 +126,6 @@ spec:
             description: "Pod {{ $labels.pod }} has been in Terminating state for more than 10 minutes."
     grafana:
       defaultDashboardsEnabled: true
-      adminUser: "admin"
       adminPassword: "admin123"
       ingress:
         enabled: true
@@ -117,39 +143,12 @@ spec:
             secretName: cert-secret-mon
         path: /
       env:
-        - name: HTTP_PROXY
-          value: ""
-        - name: http_proxy
-          value: ""
-        - name: HTTPS_PROXY
-          value: ""
-        - name: https_proxy
-          value: ""
-        - name: NO_PROXY
-          value: ""
-        - name: no_proxy
-          value: ""
-      resources:
-        limits:
-          cpu: 1
-          memory: 1Gi
-        requests:
-          cpu: 500m
-          memory: 500Mi
-      datasources:
-        datasources.yaml:
-          apiVersion: 1
-          datasources:
-            - name: Prometheus
-              type: prometheus
-              url: http://prometheus-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local
-              access: proxy
-              isDefault: true
-            - name: Loki
-              type: loki
-              url: http://loki.monitoring.svc.cluster.local:3100
-              access: proxy
-              isDefault: false
+        HTTP_PROXY: ""
+        http_proxy: ""
+        HTTPS_PROXY: ""
+        https_proxy: ""
+        NO_PROXY: ""
+        no_proxy: ""
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -173,18 +172,20 @@ spec:
     promtail:
       enabled: true
     rbac:
-      pspEnabled: false # Ensure this line disables PodSecurityPolicy
+      pspEnabled: false  # Disable PodSecurityPolicy if it exists
     serviceMonitorNamespaceSelector:
       matchNames:
-        - monitoring
+        - monitoring  # Specify namespaces to monitor here
     serviceMonitorSelector: {}
     serviceMonitorSelectorNilUsesHelmValues: false
     probeNamespaceSelector:
       any: true
     probeSelector: {}
     probeSelectorNilUsesHelmValues: false
+
+    # Add scrape_config for Loki (Promtail)
     prometheus:
       additionalScrapeConfigs:
         - job_name: 'promtail'
           static_configs:
-            - targets: ['promtail:9080']
+            - targets: ['promtail:9080']  # Replace 'promtail' with the actual hostname of your Promtail service
