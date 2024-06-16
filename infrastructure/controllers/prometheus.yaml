@@ -138,6 +138,14 @@ spec:
           annotations:
             summary: "Pod {{ $labels.pod }} stuck in Terminating state"
             description: "Pod {{ $labels.pod }} has been in Terminating state for more than 10 minutes."
+      serviceMonitorSelector:
+        matchLabels:
+          release: kube-prometheus-stack
+          app: kube-prometheus-stack
+          component: kube-controller-manager
+      serviceMonitorNamespaceSelector:
+        matchNames:
+          - kube-system
     grafana:
       defaultDashboardsEnabled: true
       adminPassword: "admin123"
