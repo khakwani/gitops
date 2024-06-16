@@ -81,8 +81,8 @@ metadata:
 spec:
   summary: "cluster addons"
   eventMetadata:
-    env: "production"
-    cluster: "production-cluster"
+    env: "staging"
+    cluster: "staging--cluster"
     region: "pk-east-1"
   providerRef:
     name: discord-bot
