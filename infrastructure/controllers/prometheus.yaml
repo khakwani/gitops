@@ -62,7 +62,7 @@ spec:
           alertmanagers:
             - static_configs:
                 - targets:
-                    - 'kube-prometheus-stack-alertmanager.monitoring:9093'  # Ensure this matches your Alertmanager service
+                    - 'kube-prometheus-stack-alertmanager.monitoring:9093'
         nodeSelector:
           tasktype: compute
         tolerations:
@@ -87,7 +87,7 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorNamespaceSelector:
           matchNames:
-            - monitoring  # Specify namespaces to monitor here
+            - monitoring
         serviceMonitorSelector: {}
         serviceMonitorSelectorNilUsesHelmValues: false
         probeNamespaceSelector:
@@ -207,10 +207,10 @@ spec:
     promtail:
       enabled: true
     rbac:
-      pspEnabled: false  # Disable PodSecurityPolicy if it exists
+      pspEnabled: false
     serviceMonitorNamespaceSelector:
       matchNames:
-        - monitoring  # Specify namespaces to monitor here
+        - monitoring
     serviceMonitorSelector: {}
     serviceMonitorSelectorNilUsesHelmValues: false
     probeNamespaceSelector:
@@ -221,4 +221,4 @@ spec:
       additionalScrapeConfigs:
         - job_name: 'promtail'
           static_configs:
-            - targets: ['promtail:9080']  # Replace 'promtail' with the actual hostname of your Promtail service
+            - targets: ['promtail:9080']
