@@ -68,6 +68,9 @@ spec:
                 match_re:
                   severity: critical
                 continue: true
+              - receiver: 'discord'
+                match:
+                  severity: warning
             inhibit_rules:
               - source_match:
                   severity: 'critical'
