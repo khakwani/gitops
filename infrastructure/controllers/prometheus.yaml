@@ -52,12 +52,17 @@ spec:
             resolve_timeout: 5m
           route:
             receiver: 'discord'
-          receivers:
-            - name: 'discord'
-              webhook_configs:
-                - url: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
+        receivers:
+          - name: 'discord'
+            webhook_configs:
+              - url: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
     prometheus:
       prometheusSpec:
+        alerting:
+          alertmanagers:
+            - static_configs:
+                - targets:
+                    - 'kube-prometheus-stack-alertmanager.monitoring:9093'  # Ensure this matches your Alertmanager service
         nodeSelector:
           tasktype: compute
         tolerations:
