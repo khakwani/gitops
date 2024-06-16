@@ -51,11 +51,22 @@ spec:
           global:
             resolve_timeout: 5m
           route:
+            group_by: ['alertname', 'job']
+            group_wait: 30s
+            group_interval: 5m
+            repeat_interval: 1h
             receiver: 'discord'
-        receivers:
-          - name: 'discord'
-            webhook_configs:
-              - url: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
+            routes:
+              - match:
+                  severity: warning
+                receiver: 'discord'
+              - match:
+                  severity: critical
+                receiver: 'discord'
+          receivers:
+            - name: 'discord'
+              webhook_configs:
+                - url: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
     prometheus:
       prometheusSpec:
         alerting:
