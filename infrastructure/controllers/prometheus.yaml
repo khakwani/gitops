@@ -72,11 +72,11 @@ spec:
         retention: 24h
         resources:
           limits:
-            cpu: 1
-            memory: 500Mi
+            cpu: 2
+            memory: 1Gi
           requests:
-            cpu: 200m
-            memory: 200Mi
+            cpu: 500m
+            memory: 500Mi
         podMonitorNamespaceSelector:
           any: true
         podMonitorSelector: {}
@@ -98,13 +98,6 @@ spec:
         - sourceLabels: ['__name__']
           regex: 'kube_pod_container_status_restarts_total'
           action: 'keep'
-          modulatortype: 'set'
-          modulus: 1
-          separator: ';'
-          replacement: '${1}_restarts;${2};${3}'
-          targetLabel: 'pod_name'
-          keep: false
-          labelDrop: true
       additionalAlerts:
         - alert: PodRestartRate
           expr: rate(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[5m]) > 0.5
@@ -222,3 +215,23 @@ spec:
         - job_name: 'promtail'
           static_configs:
             - targets: ['promtail:9080']
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: etcd
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      component: etcd
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: etcd
+      interval: 30s
+      path: /metrics
+      scheme: http
