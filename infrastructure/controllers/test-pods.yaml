@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crash-loop
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crash-loop
+  template:
+    metadata:
+      labels:
+        app: crash-loop
+    spec:
+      containers:
+      - name: crash-loop
+        image: busybox
+        args:
+        - /bin/sh
+        - -c
+        - "sleep 5; exit 1"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pending-pod
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pending-pod
+  template:
+    metadata:
+      labels:
+        app: pending-pod
+    spec:
+      containers:
+      - name: pending-pod
+        image: non-existent-image
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: terminating-pod
+  namespace: monitoring
+  finalizers:
+  - example.com/finalizer
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+s
