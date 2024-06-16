@@ -1,4 +1,3 @@
----
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -47,6 +46,16 @@ spec:
   values:
     alertmanager:
       enabled: true
+      alertmanagerSpec:
+        config:
+          global:
+            resolve_timeout: 5m
+          route:
+            receiver: 'discord'
+          receivers:
+            - name: 'discord'
+              webhook_configs:
+                - url: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
     prometheus:
       prometheusSpec:
         nodeSelector:
@@ -182,8 +191,6 @@ spec:
       any: true
     probeSelector: {}
     probeSelectorNilUsesHelmValues: false
-
-    # Add scrape_config for Loki (Promtail)
     prometheus:
       additionalScrapeConfigs:
         - job_name: 'promtail'
