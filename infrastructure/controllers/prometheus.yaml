@@ -1,4 +1,5 @@
 ---
+# Namespace creation for monitoring
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -6,6 +7,7 @@ metadata:
   labels:
     app.kubernetes.io/component: monitoring
 ---
+# Helm repository for Prometheus
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
@@ -16,6 +18,7 @@ spec:
   type: oci
   url: oci://ghcr.io/prometheus-community/charts
 ---
+# Helm repository for Loki
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
@@ -25,6 +28,7 @@ spec:
   interval: 12h
   url: https://grafana.github.io/helm-charts
 ---
+# Helm release for Prometheus stack
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -56,7 +60,7 @@ spec:
             group_wait: 30s
             group_interval: 5m
             repeat_interval: 5m
-            receiver: 'discord-webhook'  # Use the custom receiver name
+            receiver: 'discord-webhook'
             routes:
               - match:
                   alertname: Watchdog
@@ -70,7 +74,7 @@ spec:
                 receiver: 'discord-webhook'
         receivers:
           - name: 'null'
-          - name: 'discord-webhook'  # Custom receiver name for Discord
+          - name: 'discord-webhook'
             webhook_configs:
               - url: "https://discordapp.com/api/webhooks/1253273474626224128/JZz112nDA9Lk4YZZJN5E_GToVg2u0DsNQDzSpOr3r15aIKSmermW5wo_BNErlyfwwbL2"
                 send_resolved: true
@@ -148,6 +152,7 @@ spec:
         NO_PROXY: ""
         no_proxy: ""
 ---
+# ServiceMonitor for kube-controller-manager
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -169,6 +174,7 @@ spec:
       tlsConfig:
         insecureSkipVerify: true
 ---
+# Helm release for Loki stack
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -184,13 +190,33 @@ spec:
         kind: HelmRepository
         name: loki
         namespace: monitoring
-      interval: 1h
   values:
     loki:
       enabled: true
+      persistence:
+        enabled: true
+        storageClassName: "standard"
+        accessModes:
+          - ReadWriteOnce
+        size: 10Gi
     promtail:
       enabled: true
+      config:
+        clients:
+          - url: http://loki:3100/loki/api/v1/push
+        positions:
+          filename: /var/log/positions.yaml
+        scrape_configs:
+          - job_name: system
+            static_configs:
+              - targets:
+                  - localhost
+                labels:
+                  job: varlogs
+                  host: ${HOSTNAME}
+                  __path__: /var/log/*log
     rbac:
+      create: true
       pspEnabled: false
     serviceMonitorNamespaceSelector:
       matchNames:
@@ -207,6 +233,7 @@ spec:
           static_configs:
             - targets: ['promtail.monitoring.svc:3101']
 ---
+# ServiceMonitor for etcd
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
