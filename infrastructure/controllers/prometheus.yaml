@@ -68,143 +68,32 @@ spec:
               - match:
                   severity: warning
                 receiver: 'discord-webhook'
-          receivers:
-            - name: 'null'
-            - name: 'discord-webhook'  # Custom receiver name for Discord
-              webhook_configs:
-                - url: "https://discordapp.com/api/webhooks/1253273474626224128/JZz112nDA9Lk4YZZJN5E_GToVg2u0DsNQDzSpOr3r15aIKSmermW5wo_BNErlyfwwbL2"
-                  send_resolved: true
-                  title: |-
-                    [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if ne .CommonAnnotations.summary ""}}{{ .CommonAnnotations.summary }}{{ else }}{{ .CommonLabels.alertname }}{{ end }}
-                  text: >-
-                    {{ range .Alerts -}}
-                    Alert: {{ .Annotations.title }}{{ if .Labels.severity }} - {{ .Labels.severity }}{{ end }}
-                    Description: {{ if ne .Annotations.description ""}}{{ .Annotations.description }}{{else}}N/A{{ end }}
-                    Details:
-                    {{ range .Labels.SortedPairs }} • {{ .Name }}: {{ .Value }}
-                    {{ end }}
-                    {{ end }}
-    prometheus:
-      prometheusSpec:
-        alerting:
-          alertmanagers:
-            - static_configs:
-                - targets:
-                    - 'kube-prometheus-stack-alertmanager.monitoring:9093'
-        nodeSelector:
-          tasktype: compute
-        tolerations:
-          - key: "node-role.kubernetes.io/control-plane"
-            operator: "Exists"
-            effect: "NoSchedule"
-        retention: 24h
-        resources:
-          limits:
-            cpu: 2
-            memory: 1Gi
-          requests:
-            cpu: 500m
-            memory: 500Mi
-        podMonitorNamespaceSelector:
-          any: true
-        podMonitorSelector: {}
-        podMonitorSelectorNilUsesHelmValues: false
-        ruleNamespaceSelector:
-          any: true
-        ruleSelector: {}
-        ruleSelectorNilUsesHelmValues: false
-        serviceMonitorNamespaceSelector:
-          matchNames:
-            - monitoring
-        serviceMonitorSelector: {}
-        serviceMonitorSelectorNilUsesHelmValues: false
-        probeNamespaceSelector:
-          any: true
-        probeSelector: {}
-        probeSelectorNilUsesHelmValues: false
-      additionalAlertRelabelConfigs:
-        - sourceLabels: ['__name__']
-          regex: 'kube_pod_container_status_restarts_total'
-          action: 'keep'
-      additionalAlerts:
-        - alert: PodRestartRate
-          expr: rate(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[5m]) > 0.5
-          for: 5m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Pod {{ $labels.pod }} restarted frequently"
-            description: "Pod {{ $labels.pod }} restarted more than 0.5 times per minute over the last 5 minutes."
-        - alert: PodCrashLoop
-          expr: increase(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[5m]) > 1
-          for: 5m
-          labels:
-            severity: critical
-          annotations:
-            summary: "Pod {{ $labels.pod }} in crash loop"
-            description: "Pod {{ $labels.pod }} restarted more than once in the last 5 minutes, indicating a crash loop."
-        - alert: PodNotStarting
-          expr: kube_pod_status_phase{job="kube-state-metrics"} == 0
-          for: 10m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Pod {{ $labels.pod }} not starting"
-            description: "Pod {{ $labels.pod }} has been in a pending state for more than 10 minutes."
-        - alert: PodTerminatingStuck
-          expr: kube_pod_status_phase{job="kube-state-metrics"} == 1
-          for: 10m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Pod {{ $labels.pod }} stuck in Terminating state"
-            description: "Pod {{ $labels.pod }} has been in Terminating state for more than 10 minutes."
-    grafana:
-      defaultDashboardsEnabled: true
-      adminPassword: "admin123"
-      ingress:
-        enabled: true
-        ingressClassName: nginx
-        annotations:
-          kubernetes.io/ingress.class: nginx
-          cert-manager.io/cluster-issuer: letsencrypt
-          nginx.ingress.kubernetes.io/rewrite-target: /
-          nginx.ingress.kubernetes.io/ssl-redirect: "false"
-        hosts:
-          - localhost
-        tls:
-          - hosts:
-              - localhost
-            secretName: cert-secret-mon
-        path: /
-      env:
-        HTTP_PROXY: ""
-        http_proxy: ""
-        HTTPS_PROXY: ""
-        https_proxy: ""
-        NO_PROXY: ""
-        no_proxy: ""
+        receivers:
+          - name: 'null'
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
 metadata:
-  name: kube-controller-manager
+  name: alertmanager-discord
   namespace: monitoring
-  labels:
-    release: kube-prometheus-stack
 spec:
-  selector:
-    matchLabels:
-      component: kube-controller-manager
-  namespaceSelector:
-    matchNames:
-      - kube-system
-  endpoints:
-    - port: https-metrics
-      scheme: https
-      path: /metrics
-      tlsConfig:
-        insecureSkipVerify: true
+  interval: 1h
+  chart:
+    spec:
+      chart: alertmanager-discord
+      version: "0.3.0"
+      sourceRef:
+        kind: HelmRepository
+        name: alertmanagerdiscord
+        namespace: monitoring
+      interval: 1h
+  values:
+    alertmanagerDiscord:
+      discordWebhook:
+        url: "https://discordapp.com/api/webhooks/1253273474626224128/JZz112nDA9Lk4YZZJN5E_GToVg2u0DsNQDzSpOr3r15aIKSmermW5wo_BNErlyfwwbL2"
+        channel: "prometheus"  # Specify the channel name you want alerts to appear in
+        iconUrl: ""
+        username: "Alertmanager"
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
