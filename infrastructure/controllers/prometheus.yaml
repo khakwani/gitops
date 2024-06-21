@@ -74,10 +74,10 @@ spec:
                 receiver: 'slack-alertmanager'
         receivers:
           - name: 'null'
-          - name: 'mqex-prometheus'
+          - name: 'slack-alertmanager'
             slack_configs:
-              - api_url: "https://hooks.slack.com/services/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"
-                channel: "#alertmanager-alerts"
+              - api_url: "https://hooks.slack.com/services/T11111111/B11111111/YYYYYYYYYYYYYYYYYYYYYYYY"
+                channel: "#mqex-prometheus"
                 send_resolved: true
                 title: |-
                   [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if ne .CommonAnnotations.summary ""}}{{ .CommonAnnotations.summary }}{{ else }}{{ .CommonLabels.alertname }}{{ end }}
