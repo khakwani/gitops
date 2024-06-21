@@ -62,21 +62,15 @@ spec:
             repeat_interval: 5m
             receiver: 'slack-alertmanager'
             routes:
-              - match:
-                  alertname: Watchdog
-                receiver: 'null'
-              - match_re:
-                  severity: critical
-                receiver: 'slack-alertmanager'
+              - receiver: 'slack-alertmanager'
+                group_wait: 30s
+                match:
+                  severity: ''
                 continue: true
-              - match:
-                  severity: warning
-                receiver: 'slack-alertmanager'
           receivers:
-            - name: 'null'
             - name: 'slack-alertmanager'
               slack_configs:
-                - api_url: "$(webhook-url)"
+                - api_url: $(webhook-url)
                   channel: "#mqex-prometheus"
                   send_resolved: true
                   title: |-
