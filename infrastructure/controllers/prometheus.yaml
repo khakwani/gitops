@@ -70,7 +70,7 @@ spec:
           receivers:
             - name: 'slack-alertmanager'
               slack_configs:
-                - api_url: $(webhook-url)
+                - api_url: /etc/config/slack-webhook-prom-url
                   channel: "#mqex-prometheus"
                   send_resolved: true
                   title: |-
