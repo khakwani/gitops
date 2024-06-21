@@ -1,4 +1,3 @@
----
 # Namespace creation for monitoring
 apiVersion: v1
 kind: Namespace
@@ -65,13 +64,7 @@ spec:
               - match:
                   alertname: Watchdog
                 receiver: 'null'
-              - match_re:
-                  severity: critical
-                receiver: 'slack-alertmanager'
-                continue: true
-              - match:
-                  severity: warning
-                receiver: 'slack-alertmanager'
+              - receiver: 'slack-alertmanager' # This will match all alerts
           receivers:
             - name: 'null'
             - name: 'slack-alertmanager'
