@@ -72,23 +72,23 @@ spec:
               - match:
                   severity: warning
                 receiver: 'slack-alertmanager'
-        receivers:
-          - name: 'null'
-          - name: 'slack-alertmanager'
-            slack_configs:
-              - api_url: "https://hooks.slack.com/services/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"
-                channel: "#mqex-prometheus"
-                send_resolved: true
-                title: |-
-                  [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if ne .CommonAnnotations.summary ""}}{{ .CommonAnnotations.summary }}{{ else }}{{ .CommonLabels.alertname }}{{ end }}
-                text: >-
-                  {{ range .Alerts -}}
-                  Alert: {{ .Annotations.title }}{{ if .Labels.severity }} - {{ .Labels.severity }}{{ end }}
-                  Description: {{ if ne .Annotations.description ""}}{{ .Annotations.description }}{{else}}N/A{{ end }}
-                  Details:
-                  {{ range .Labels.SortedPairs }} • {{ .Name }}: {{ .Value }}
-                  {{ end }}
-                  {{ end }}
+          receivers:
+            - name: 'null'
+            - name: 'slack-alertmanager'
+              slack_configs:
+                - api_url: "$(webhook-url1)"
+                  channel: "#mqex-prometheus"
+                  send_resolved: true
+                  title: |-
+                    [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if ne .CommonAnnotations.summary ""}}{{ .CommonAnnotations.summary }}{{ else }}{{ .CommonLabels.alertname }}{{ end }}
+                  text: >-
+                    {{ range .Alerts -}}
+                    Alert: {{ .Annotations.title }}{{ if .Labels.severity }} - {{ .Labels.severity }}{{ end }}
+                    Description: {{ if ne .Annotations.description ""}}{{ .Annotations.description }}{{else}}N/A{{ end }}
+                    Details:
+                    {{ range .Labels.SortedPairs }} • {{ .Name }}: {{ .Value }}
+                    {{ end }}
+                    {{ end }}
     prometheus:
       prometheusSpec:
         alerting:
