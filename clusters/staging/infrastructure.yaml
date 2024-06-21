@@ -71,7 +71,7 @@ metadata:
   name: slack-webhook-url
   namespace: flux-system
 stringData:
-  webhook-url: "https://hooks.slack.com/services/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"  # Replace with your actual webhook URL
+  webhook-url: ""
 ---
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
