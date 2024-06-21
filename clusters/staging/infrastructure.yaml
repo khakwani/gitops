@@ -71,7 +71,7 @@ metadata:
   name: slack-fluxcd-webhook
   namespace: flux-system
 stringData:
-  address: "https://hooks.slack.com/services/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"
+  address: "https://hooks.slack.com/services/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"
 ---
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
