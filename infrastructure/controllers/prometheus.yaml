@@ -62,16 +62,25 @@ spec:
             repeat_interval: 5m
             receiver: 'slack-alertmanager'
             routes:
-              - receiver: 'slack-alertmanager'
-                group_wait: 30s
-                match:
-                  severity: ''
+              - match:
+                  alertname: Watchdog
+                receiver: 'null'
+              - match_re:
+                  severity: critical
+                receiver: 'slack-alertmanager'
                 continue: true
+              - match:
+                  severity: warning
+                receiver: 'slack-alertmanager'
           receivers:
+            - name: 'null'
             - name: 'slack-alertmanager'
               slack_configs:
-                - api_url: /etc/config/slack-webhook-prom-url
-                  channel: "#mqex-prometheus"  # Update channel as needed
+                - api_url: |-
+                    {{- with secret "monitoring/slack-webhook-prom-url" }}
+                    {{ .Data.address }}
+                    {{- end }}
+                  channel: "#mqex-prometheus"
                   send_resolved: true
                   title: |-
                     [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if ne .CommonAnnotations.summary ""}}{{ .CommonAnnotations.summary }}{{ else }}{{ .CommonLabels.alertname }}{{ end }}
@@ -222,6 +231,11 @@ spec:
       any: true
     probeSelector: {}
     probeSelectorNilUsesHelmValues: false
+    prometheus:
+      additionalScrapeConfigs:
+        - job_name: 'promtail'
+          static_configs:
+            - targets: ['promtail.monitoring.svc:3101']
 ---
 # ServiceMonitor for etcd
 apiVersion: monitoring.coreos.com/v1
