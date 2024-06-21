@@ -76,7 +76,7 @@ spec:
           - name: 'null'
           - name: 'slack-alertmanager'
             slack_configs:
-              - api_url: "https://hooks.slack.com/services/T11111111/B11111111/YYYYYYYYYYYYYYYYYYYYYYYY"
+              - api_url: "https://hooks.slack.com/services/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"
                 channel: "#mqex-prometheus"
                 send_resolved: true
                 title: |-
