@@ -27,6 +27,16 @@ spec:
   interval: 12h
   url: https://grafana.github.io/helm-charts
 ---
+# Secret for Slack webhook URL
+apiVersion: v1
+kind: Secret
+metadata:
+  name: slack-webhook-prom-url
+  namespace: monitoring
+type: Opaque
+data:
+  address: "aHR0cHM6Ly9ob29rcy5zbGFjay5jb20vc2VydmljZXMvVDA3OTZTWDhaRlcvQjA3OVRERlFVTDgvQUs2Sm9oV2R0allaN3hhZ0VncDhIN3NH"
+---
 # Helm release for Prometheus stack
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -70,9 +80,7 @@ spec:
             - name: 'slack-alertmanager'
               slack_configs:
                 - api_url: |-
-                    {{- with secret "monitoring/slack-webhook-prom-url" }}
-                    {{ .Data.address }}
-                    {{- end }}
+                    http://slack-webhook-prom-url.monitoring.svc.cluster.local
                   channel: "#mqex-prometheus"
                   send_resolved: true
                   title: |-
