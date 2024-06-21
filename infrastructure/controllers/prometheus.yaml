@@ -60,23 +60,24 @@ spec:
             group_wait: 30s
             group_interval: 5m
             repeat_interval: 5m
-            receiver: 'discord-webhook'
+            receiver: 'slack-alertmanager'
             routes:
               - match:
                   alertname: Watchdog
                 receiver: 'null'
               - match_re:
                   severity: critical
-                receiver: 'discord-webhook'
+                receiver: 'slack-alertmanager'
                 continue: true
               - match:
                   severity: warning
-                receiver: 'discord-webhook'
+                receiver: 'slack-alertmanager'
         receivers:
           - name: 'null'
-          - name: 'discord-webhook'
-            webhook_configs:
-              - url: "https://discordapp.com/api/webhooks/1253273474626224128/JZz112nDA9Lk4YZZJN5E_GToVg2u0DsNQDzSpOr3r15aIKSmermW5wo_BNErlyfwwbL2"
+          - name: 'mqex-prometheus'
+            slack_configs:
+              - api_url: "https://hooks.slack.com/services/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"
+                channel: "#alertmanager-alerts"
                 send_resolved: true
                 title: |-
                   [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if ne .CommonAnnotations.summary ""}}{{ .CommonAnnotations.summary }}{{ else }}{{ .CommonLabels.alertname }}{{ end }}

@@ -57,20 +57,21 @@ spec:
 apiVersion: notification.toolkit.fluxcd.io/v1beta2
 kind: Provider
 metadata:
-  name: discord-bot
+  name: slack-fluxcd
   namespace: flux-system
 spec:
-  type: discord
+  type: slack
+  channel: "#mqex-fluxcd"
   secretRef:
-    name: discord-webhook
+    name: slack-fluxcd-webhook
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: discord-webhook
+  name: slack-fluxcd-webhook
   namespace: flux-system
 stringData:
-  address: "https://discordapp.com/api/webhooks/1246044427005202432/X5TYJG3z5e5BgZqfe8OxLUMpBr-_s4mny9--LBjovES9CJhFFPXb0bEOS16cLHKYXu_y"
+  address: "https://hooks.slack.com/services/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"
 ---
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
 kind: Alert
@@ -84,7 +85,7 @@ spec:
     cluster: "staging"
     region: "pk-east-1"
   providerRef:
-    name: discord-bot
+    name: slack-fluxcd
   eventSeverity: info
   eventSources:
     - kind: GitRepository
