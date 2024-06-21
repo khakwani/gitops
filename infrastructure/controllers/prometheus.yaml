@@ -76,7 +76,7 @@ spec:
             - name: 'null'
             - name: 'slack-alertmanager'
               slack_configs:
-                - api_url: "$(webhook-url1)"
+                - api_url: "$(webhook-url)"
                   channel: "#mqex-prometheus"
                   send_resolved: true
                   title: |-
