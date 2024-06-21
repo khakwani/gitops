@@ -79,8 +79,10 @@ spec:
             - name: 'null'
             - name: 'slack-alertmanager'
               slack_configs:
-                - api_url: |-
-                    http://slack-webhook-prom-url.monitoring.svc.cluster.local
+                - api_url: |
+                    {{- with secret "monitoring/slack-webhook-prom-url" }}
+                    {{ .Data.address | toString }}
+                    {{- end }}
                   channel: "#mqex-prometheus"
                   send_resolved: true
                   title: |-
