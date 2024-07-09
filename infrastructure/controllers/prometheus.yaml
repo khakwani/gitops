@@ -245,3 +245,38 @@ spec:
       path: /metrics
       tlsConfig:
         insecureSkipVerify: true
+---
+# Role and RoleBinding for Loki
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: loki-role
+  namespace: monitoring
+rules:
+- apiGroups: [""]
+  resources: ["pods", "namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: loki-rolebinding
+  namespace: monitoring
+subjects:
+- kind: ServiceAccount
+  name: loki
+  namespace: monitoring
+roleRef:
+  kind: Role
+  name: loki-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# ServiceAccount for Loki
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loki
+  namespace: monitoring
