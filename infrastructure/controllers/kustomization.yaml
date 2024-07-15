@@ -4,4 +4,4 @@ resources:
   - cert-manager.yaml
   - ingress-nginx.yaml
   - prometheus.yaml
-  
+  - grafana-admin-credentials.yaml

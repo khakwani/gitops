@@ -17,17 +17,17 @@ spec:
   type: oci
   url: oci://ghcr.io/prometheus-community/charts
 ---
-# Helm repository for Loki
+# Helm repository for Grafana Loki
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: loki
+  name: grafana
   namespace: monitoring
 spec:
   interval: 12h
   url: https://grafana.github.io/helm-charts
 ---
-# Helm release for Prometheus stack
+# Helm release for kube-prometheus-stack
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -37,8 +37,8 @@ spec:
   interval: 1h
   chart:
     spec:
-      version: "58.7.2"
       chart: kube-prometheus-stack
+      version: "58.7.2"
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -81,9 +81,9 @@ spec:
                 - targets:
                     - 'kube-prometheus-stack-alertmanager.monitoring:9093'
       nodeSelector:
-        tasktype: compute
+        kubernetes.io/hostname: staging-worker
       tolerations:
-        - key: "node-role.kubernetes.io/control-plane"
+        - key: "node-role.kubernetes.io/worker"
           operator: "Exists"
           effect: "NoSchedule"
       retention: 24h
@@ -111,75 +111,22 @@ spec:
         any: true
       probeSelector: {}
       probeSelectorNilUsesHelmValues: false
-    grafana:
-      defaultDashboardsEnabled: true
-      adminPassword: "admin123"
-      ingress:
-        enabled: true
-        ingressClassName: nginx
-        annotations:
-          kubernetes.io/ingress.class: nginx
-          cert-manager.io/cluster-issuer: letsencrypt
-          nginx.ingress.kubernetes.io/rewrite-target: /
-          nginx.ingress.kubernetes.io/ssl-redirect: "false"
-        hosts:
-          - localhost
-        tls:
-          - hosts:
-              - localhost
-            secretName: cert-secret-mon
-        path: /
-      persistence:
-        enabled: true
-        storageClassName: "standard"
-        accessModes:
-          - ReadWriteOnce
-        size: 10Gi
-      env:
-        HTTP_PROXY: ""
-        http_proxy: ""
-        HTTPS_PROXY: ""
-        https_proxy: ""
-        NO_PROXY: ""
-        no_proxy: ""
 ---
-# ServiceMonitor for kube-controller-manager
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: kube-controller-manager
-  namespace: monitoring
-  labels:
-    release: kube-prometheus-stack
-spec:
-  selector:
-    matchLabels:
-      component: kube-controller-manager
-  namespaceSelector:
-    matchNames:
-      - kube-system
-  endpoints:
-    - port: https-metrics
-      scheme: https
-      path: /metrics
-      tlsConfig:
-        insecureSkipVerify: true
----
-# Helm release for Loki stack
+# Helm release for Grafana Loki
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: loki-stack
+  name: grafana-loki
   namespace: monitoring
 spec:
   interval: 1h
   chart:
     spec:
       chart: loki-stack
-      version: "3.1.0"
+      version: "3.0.0"
       sourceRef:
         kind: HelmRepository
-        name: loki
+        name: grafana
         namespace: monitoring
   values:
     loki:
@@ -224,34 +171,34 @@ spec:
           static_configs:
             - targets: ['promtail.monitoring.svc:3101']
 ---
-# ServiceAccount for Loki
+# ServiceAccount for Grafana Loki
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: loki
   namespace: monitoring
 ---
-# Role for Loki
+# Role for Grafana Loki
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: loki
   namespace: monitoring
 rules:
-- apiGroups: [""]
-  resources: ["pods", "nodes"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["events"]
-  verbs: ["list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses"]
-  verbs: ["list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["networkpolicies"]
-  verbs: ["list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["list", "watch"]
 ---
-# RoleBinding for Loki
+# RoleBinding for Grafana Loki
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -262,11 +209,11 @@ roleRef:
   kind: Role
   name: loki
 subjects:
-- kind: ServiceAccount
-  name: loki
-  namespace: monitoring
+  - kind: ServiceAccount
+    name: loki
+    namespace: monitoring
 ---
-# ConfigMap for Loki
+# ConfigMap for Grafana Loki
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -311,7 +258,7 @@ data:
       retention_deletes_enabled: true
       retention_period: 336h
 ---
-# StatefulSet for Loki
+# StatefulSet for Grafana Loki
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -330,37 +277,37 @@ spec:
     spec:
       serviceAccountName: loki
       containers:
-      - name: loki
-        image: grafana/loki:2.2.1
-        ports:
-        - containerPort: 3100
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 3100
-          initialDelaySeconds: 45
-          timeoutSeconds: 1
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            path: /ready
-            port: 3100
-          initialDelaySeconds: 45
-          timeoutSeconds: 1
-          periodSeconds: 10
-          successThreshold: 1
-          failureThreshold: 3
-        volumeMounts:
-        - name: storage
-          mountPath: /loki
+        - name: loki
+          image: grafana/loki:2.6.1
+          ports:
+            - containerPort: 3100
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3100
+            initialDelaySeconds: 45
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 3100
+            initialDelaySeconds: 45
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:
+            - name: storage
+              mountPath: /loki
       volumes:
-      - name: storage
-        persistentVolumeClaim:
-          claimName: loki
+        - name: storage
+          persistentVolumeClaim:
+            claimName: loki
 ---
-# PersistentVolumeClaim for Loki
+# PersistentVolumeClaim for Grafana Loki
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -368,12 +315,12 @@ metadata:
   namespace: monitoring
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
 ---
-# Service for Loki
+# Service for Grafana Loki
 apiVersion: v1
 kind: Service
 metadata:
@@ -381,8 +328,8 @@ metadata:
   namespace: monitoring
 spec:
   ports:
-  - port: 3100
-    name: http
+    - port: 3100
+      name: http
   clusterIP: None
   selector:
     app: loki
