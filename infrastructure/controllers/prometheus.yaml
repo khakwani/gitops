@@ -224,28 +224,6 @@ spec:
           static_configs:
             - targets: ['promtail.monitoring.svc:3101']
 ---
-# ServiceMonitor for etcd
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: etcd
-  namespace: monitoring
-  labels:
-    release: kube-prometheus-stack
-spec:
-  selector:
-    matchLabels:
-      component: etcd
-  namespaceSelector:
-    matchNames:
-      - kube-system
-  endpoints:
-    - port: https-metrics
-      scheme: https
-      path: /metrics
-      tlsConfig:
-        insecureSkipVerify: true
----
 # ServiceAccount for Loki
 apiVersion: v1
 kind: ServiceAccount
