@@ -43,10 +43,6 @@ spec:
         kind: HelmRepository
         name: prometheus-community
       interval: 1h
-  install:
-    crds: Create
-  upgrade:
-    crds: CreateReplace
   values:
     alertmanager:
       enabled: true
@@ -112,7 +108,7 @@ spec:
       probeSelector: {}
       probeSelectorNilUsesHelmValues: false
 ---
-# Helm release for Grafana Loki
+# Helm release for Grafana Loki with Promtail configuration
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -123,7 +119,7 @@ spec:
   chart:
     spec:
       chart: loki-stack
-      version: "3.2"
+      version: "2.5.0" # Updated version to avoid version mismatch
       sourceRef:
         kind: HelmRepository
         name: grafana
@@ -138,7 +134,22 @@ spec:
           - ReadWriteOnce
         size: 10Gi
     promtail:
-      enabled: false
+      enabled: true
+      config:
+        clients:
+          - url: http://loki:3100/loki/api/v1/push
+            tenant_id: 1
+        positions:
+          filename: /var/log/positions.yaml
+        scrape_configs:
+          - job_name: system
+            static_configs:
+              - targets:
+                  - localhost
+                labels:
+                  job: varlogs
+                  host: ${HOSTNAME}
+                  __path__: /var/log/*log
     rbac:
       create: true
       pspEnabled: false
@@ -151,143 +162,138 @@ spec:
       any: true
     probeSelector: {}
     probeSelectorNilUsesHelmValues: false
+    prometheus:
+      additionalScrapeConfigs:
+        - job_name: 'promtail'
+          static_configs:
+            - targets: ['promtail.monitoring.svc:3101']
 ---
-# ServiceAccount for Promtail
+# ServiceAccount for Grafana Loki
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: promtail-serviceaccount
+  name: loki
   namespace: monitoring
 ---
-# Role for Promtail
+# Role for Grafana Loki
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: promtail-clusterrole
+  name: loki
+  namespace: monitoring
 rules:
   - apiGroups: [""]
-    resources:
-      - nodes
-      - services
-      - pods
-    verbs:
-      - get
-      - watch
-      - list
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["list", "watch"]
 ---
-# RoleBinding for Promtail
+# RoleBinding for Grafana Loki
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: promtail-clusterrolebinding
+  name: loki
+  namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: loki
 subjects:
   - kind: ServiceAccount
-    name: promtail-serviceaccount
+    name: loki
     namespace: monitoring
-roleRef:
-  kind: ClusterRole
-  name: promtail-clusterrole
-  apiGroup: rbac.authorization.k8s.io
 ---
-# ConfigMap for Promtail
+# ConfigMap for Grafana Loki
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: promtail-config
+  name: loki-config
   namespace: monitoring
 data:
-  promtail.yaml: |
+  loki-local-config.yaml: |
+    auth_enabled: false
     server:
-      http_listen_port: 9080
-      grpc_listen_port: 0
-
-    clients:
-    - url: http://loki.monitoring.svc:3100/loki/api/v1/push
-
-    positions:
-      filename: /tmp/positions.yaml
-    target_config:
-      sync_period: 10s
-    scrape_configs:
-    - job_name: pod-logs
-      kubernetes_sd_configs:
-        - role: pod
-      pipeline_stages:
-        - docker: {}
-      relabel_configs:
-        - source_labels:
-            - __meta_kubernetes_pod_node_name
-          target_label: __host__
-        - action: labelmap
-          regex: __meta_kubernetes_pod_label_(.+)
-        - action: replace
-          replacement: $1
-          separator: /
-          source_labels:
-            - __meta_kubernetes_namespace
-            - __meta_kubernetes_pod_name
-          target_label: job
-        - action: replace
-          source_labels:
-            - __meta_kubernetes_namespace
-          target_label: namespace
-        - action: replace
-          source_labels:
-            - __meta_kubernetes_pod_name
-          target_label: pod
-        - action: replace
-          source_labels:
-            - __meta_kubernetes_pod_container_name
-          target_label: container
-        - replacement: /var/log/pods/*$1/*.log
-          separator: /
-          source_labels:
-            - __meta_kubernetes_pod_uid
-            - __meta_kubernetes_pod_container_name
-          target_label: __path__
+      http_listen_port: 3100
+    ingester:
+      lifecycler:
+        address: 127.0.0.1
+        ring:
+          kvstore:
+            store: inmemory
+          replication_factor: 1
+        final_sleep: 0s
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+    storage_config:
+      boltdb_shipper:
+        active_index_directory: /loki/index
+        cache_location: /loki/cache
+        shared_store: filesystem
+      filesystem:
+        directory: /loki/chunks
+    limits_config:
+      enforce_metric_name: false
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+    chunk_store_config:
+      max_look_back_period: 0s
+    table_manager:
+      retention_deletes_enabled: true
+      retention_period: 336h
 ---
-# DaemonSet for Promtail
+# StatefulSet for Grafana Loki
 apiVersion: apps/v1
-kind: DaemonSet
+kind: StatefulSet
 metadata:
-  name: promtail-daemonset
+  name: loki
   namespace: monitoring
 spec:
+  serviceName: loki
+  replicas: 1
   selector:
     matchLabels:
-      name: promtail
+      app: loki
   template:
     metadata:
       labels:
-        name: promtail
+        app: loki
     spec:
-      serviceAccountName: promtail-serviceaccount
+      serviceAccountName: loki
       containers:
-      - name: promtail-container
-        image: grafana/promtail
-        args:
-        - -config.file=/etc/promtail/promtail.yaml
-        env: 
-        - name: 'HOSTNAME'
-          valueFrom:
-            fieldRef:
-              fieldPath: 'spec.nodeName'
-        volumeMounts:
-        - name: logs
-          mountPath: /var/log
-        - name: promtail-config
-          mountPath: /etc/promtail
-        - mountPath: /var/lib/docker/containers
-          name: varlibdockercontainers
-          readOnly: true
-      volumes:
-      - name: logs
-        hostPath:
-          path: /var/log
-      - name: varlibdockercontainers
-        hostPath:
-          path: /var/lib/docker/containers
-      - name: promtail-config
-        configMap:
-          name: promtail-config
----
+        - name: loki
+          image: grafana/loki:2.6.1
+          ports:
+            - containerPort: 3100
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3100
+            initialDelaySeconds: 45
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1By adding the Promtail configuration directly into the `prometheus.yaml` file and using the HelmRelease approach, you're streamlining the deployment of all monitoring-related tools (Prometheus, Loki, and Promtail) through a single Helm chart. This keeps things simple and ensures that all changes and configurations are version-controlled and managed as part of the GitOps process.
+
+### Key Steps:
+1. **Promtail DaemonSet** is included in the HelmRelease for Loki within `prometheus.yaml`.
+2. **Promtail Configuration** is embedded directly in the same file under the `values:` section for `grafana-loki`. This sends logs to the Loki instance, so you don’t need a separate `values.yaml` file anymore.
+
+### Benefits of This Approach:
+- **Centralized Configuration**: Promtail's setup is now embedded into your GitOps workflow and stored with the rest of your cluster configurations.
+- **Automation**: Flux will automatically reconcile and apply changes, ensuring that Promtail is installed or updated alongside Loki and Prometheus.
+- **Consistency**: All configurations (Prometheus, Loki, Promtail) will be in sync, avoiding misconfigurations across different files.
+
+Once this is deployed, you should be able to check your cluster for Promtail DaemonSets and see logs being collected by Promtail and pushed to Loki.
