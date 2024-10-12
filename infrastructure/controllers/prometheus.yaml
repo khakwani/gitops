@@ -46,22 +46,6 @@ spec:
   values:
     alertmanager:
       enabled: true
-      alertmanagerSpec:
-        config:
-          global:
-            resolve_timeout: 5m
-          route:
-            group_by: ['alertname', 'job']
-            group_wait: 30s
-            group_interval: 5m
-            repeat_interval: 5m
-            receiver: 'null'
-            routes:
-              - match:
-                  alertname: Watchdog
-                receiver: 'null'
-          receivers:
-            - name: 'null'
     prometheus:
       prometheusSpec:
         storageSpec:
@@ -90,23 +74,6 @@ spec:
         requests:
           cpu: 500m
           memory: 500Mi
-      podMonitorNamespaceSelector:
-        any: true
-      podMonitorSelector: {}
-      podMonitorSelectorNilUsesHelmValues: false
-      ruleNamespaceSelector:
-        any: true
-      ruleSelector: {}
-      ruleSelectorNilUsesHelmValues: false
-      serviceMonitorNamespaceSelector:
-        matchNames:
-          - monitoring
-      serviceMonitorSelector: {}
-      serviceMonitorSelectorNilUsesHelmValues: false
-      probeNamespaceSelector:
-        any: true
-      probeSelector: {}
-      probeSelectorNilUsesHelmValues: false
 ---
 # Helm release for Loki Stack
 apiVersion: helm.toolkit.fluxcd.io/v2
@@ -193,20 +160,6 @@ spec:
                 target_label: pod
               - source_labels: [__meta_kubernetes_pod_container_name]
                 target_label: container
-          - job_name: kubernetes-pods-static
-            kubernetes_sd_configs:
-              - role: pod
-            relabel_configs:
-              - source_labels: [__meta_kubernetes_pod_annotation_kubernetes_io_config_mirror]
-                action: keep
-              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-                action: keep
-              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-                action: replace
-                target_label: _metrics_path_
-                regex: (.+)
-      serviceMonitor:
-        enabled: true
 ---
 # Promtail DaemonSet
 apiVersion: apps/v1
