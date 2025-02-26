@@ -111,7 +111,7 @@ spec:
               replication_factor: 1
         schema_config:
           configs:
-            - from: 2020-10-24
+            - from: 2025-02-26
               store: boltdb-shipper
               object_store: filesystem
               schema: v11
@@ -216,7 +216,7 @@ data:
   promtail.yaml: |
     server:
       http_listen_port: 9080
-      grpc_listen_port: 0
+#     grpc_listen_port: 0            removed this configuration
 
     clients:
       - url: http://loki-stack:3100/loki/api/v1/push
