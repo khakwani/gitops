@@ -111,7 +111,7 @@ spec:
               replication_factor: 1
         schema_config:
           configs:
-            - from: 2025-02-26
+            - from: "2025-02-26T00:00:00Z"
               store: boltdb-shipper
               object_store: filesystem
               schema: v11
